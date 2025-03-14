@@ -2,13 +2,14 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven'  // This must match the name you configured in Jenkins
+        maven 'maven'
     }
 
     environment {
         IMAGE_NAME = 'skillup-java-app'
         CONTAINER_NAME = 'skillup-java-container'
-        PORT = '8080'
+        EXTERNAL_PORT = '8081'  // Change to 8081 to avoid conflict
+        INTERNAL_PORT = '8080'
     }
 
     stages {
@@ -38,7 +39,7 @@ pipeline {
             steps {
                 script {
                     sh "docker rm -f ${CONTAINER_NAME} || true"
-                    sh "docker run -d -p ${PORT}:${PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
+                    sh "docker run -d -p ${EXTERNAL_PORT}:${INTERNAL_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
                 }
             }
         }
