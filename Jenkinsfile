@@ -1,63 +1,56 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'maven:3.9.9-eclipse-temurin-17'  // Uses Maven and Java 17
+        }
+    }
 
     environment {
-        IMAGE_NAME = 'skillup-java-app'  // Docker image name
-        CONTAINER_NAME = 'skillup-java-container'  // Container name
-        HOST_PORT = '9090'  // Change this port to avoid conflict with Jenkins
-        CONTAINER_PORT = '8786'  // Your application runs on this port inside the container
+        APP_NAME = "skillup-java-app"
+        CONTAINER_NAME = "skillup-java-container"
+        HOST_PORT = "8786"  // Changed from 8080 to avoid conflict with Jenkins
+        CONTAINER_PORT = "8786"
     }
 
     stages {
-        stage('Clone Code') {
+        stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/Rushi5078/skillupjava.git'
+                git 'https://github.com/Rushi5078/skillupjava.git'
             }
         }
 
         stage('Build Application') {
             steps {
-                script {
-                    sh 'mvn clean install -DskipTests'
-                }
+                sh 'mvn clean install -DskipTests'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    sh 'docker build -t ${IMAGE_NAME} .'
-                }
+                sh 'docker build -t $APP_NAME .'
             }
         }
 
         stage('Run Docker Container') {
             steps {
                 script {
-                    sh "docker rm -f ${CONTAINER_NAME} || true"
-                    sh "docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
+                    // Stop and remove existing container if running
+                    sh 'docker rm -f $CONTAINER_NAME || true'
+
+                    // Run new container on updated port 8786
+                    sh 'docker run -d -p $HOST_PORT:$CONTAINER_PORT --name $CONTAINER_NAME $APP_NAME'
                 }
             }
         }
     }
 
     post {
-        always {
-            script {
-                echo 'Cleaning up unused Docker resources...'
-                sh 'docker system prune -f --volumes'
-            }
-        }
         success {
-            script {
-                echo '✅ Deployment Successful! Access the application at http://localhost:9090'
-            }
+            echo "✅ Deployment successful! Access the application at http://localhost:8786"
         }
         failure {
-            script {
-                echo '❌ Deployment Failed! Check logs for errors.'
-                sh 'docker logs ${CONTAINER_NAME} || true'
-            }
+            echo "❌ Deployment failed! Check logs for errors."
+            sh 'docker logs $CONTAINER_NAME'
         }
     }
 }
