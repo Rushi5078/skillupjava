@@ -1,15 +1,11 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'maven'
-    }
-
     environment {
-        IMAGE_NAME = 'skillup-java-app'
-        CONTAINER_NAME = 'skillup-java-container'
-        EXTERNAL_PORT = '8081'  // Change to 8081 to avoid conflict
-        INTERNAL_PORT = '8080'
+        IMAGE_NAME = 'skillup-java-app'  // Docker image name
+        CONTAINER_NAME = 'skillup-java-container'  // Container name
+        HOST_PORT = '9090'  // Change this port to avoid conflict with Jenkins
+        CONTAINER_PORT = '8786'  // Your application runs on this port inside the container
     }
 
     stages {
@@ -22,7 +18,7 @@ pipeline {
         stage('Build Application') {
             steps {
                 script {
-                    sh 'mvn clean package -DskipTests'
+                    sh 'mvn clean install -DskipTests'
                 }
             }
         }
@@ -39,7 +35,7 @@ pipeline {
             steps {
                 script {
                     sh "docker rm -f ${CONTAINER_NAME} || true"
-                    sh "docker run -d -p ${EXTERNAL_PORT}:${INTERNAL_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
+                    sh "docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
                 }
             }
         }
@@ -47,13 +43,21 @@ pipeline {
 
     post {
         always {
-            sh 'docker system prune -f --volumes'
+            script {
+                echo 'Cleaning up unused Docker resources...'
+                sh 'docker system prune -f --volumes'
+            }
         }
         success {
-            echo 'Deployment successful!'
+            script {
+                echo '✅ Deployment Successful! Access the application at http://localhost:9090'
+            }
         }
         failure {
-            echo 'Deployment failed. Check logs for details.'
+            script {
+                echo '❌ Deployment Failed! Check logs for errors.'
+                sh 'docker logs ${CONTAINER_NAME} || true'
+            }
         }
     }
 }
