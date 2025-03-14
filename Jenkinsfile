@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven 3.9.9'  // Ensure Maven is configured in Jenkins
+        maven 'maven'  // This must match the name you configured in Jenkins
     }
 
     environment {
-        IMAGE_NAME = 'skillup-java-app'      // Name of the Docker image
-        CONTAINER_NAME = 'skillup-java-container'  // Container name
-        PORT = '8080'  // Port to expose
+        IMAGE_NAME = 'skillup-java-app'
+        CONTAINER_NAME = 'skillup-java-container'
+        PORT = '8080'
     }
 
     stages {
@@ -21,7 +21,6 @@ pipeline {
         stage('Build Application') {
             steps {
                 script {
-                    // Build the project using Maven
                     sh 'mvn clean package -DskipTests'
                 }
             }
@@ -30,7 +29,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build the Docker image from the Dockerfile
                     sh 'docker build -t ${IMAGE_NAME} .'
                 }
             }
@@ -39,10 +37,7 @@ pipeline {
         stage('Run Docker Container') {
             steps {
                 script {
-                    // Stop and remove any existing container
                     sh "docker rm -f ${CONTAINER_NAME} || true"
-
-                    // Run the Docker container and map the port
                     sh "docker run -d -p ${PORT}:${PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
                 }
             }
@@ -51,10 +46,7 @@ pipeline {
 
     post {
         always {
-            script {
-                echo 'Cleaning up Docker resources...'
-                sh 'docker system prune -f --volumes'
-            }
+            sh 'docker system prune -f --volumes'
         }
         success {
             echo 'Deployment successful!'
