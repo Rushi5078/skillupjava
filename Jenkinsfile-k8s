@@ -1,27 +1,39 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'maven'
+    }
+
     environment {
-        IMAGE_NAME = 'rushikesh8788/skillupjava'
-        IMAGE_TAG = "${env.BUILD_NUMBER}" // Use BUILD_NUMBER for unique image tagging
-        PORT = '8786'  // Port exposed by the container
+        IMAGE_NAME = 'skillup-java-app'
+        CONTAINER_NAME = 'skillup-java-container'
+        EXTERNAL_PORT = '8786'  // Updated to avoid 8080
+        INTERNAL_PORT = '8786'  // Updated internal port to match external
+        K8S_NAMESPACE = 'default'  // You can replace it with your own namespace
+        K8S_DEPLOYMENT_NAME = 'skillup-java-deployment'
+        IMAGE_TAG = "${env.BUILD_NUMBER}" // Tag Docker image with Jenkins build number
     }
 
     stages {
-        stage('Checkout Repository') {
+        stage('Clone Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Rushi5078/skillupjava.git'
+            }
+        }
+
+        stage('Build Application') {
             steps {
                 script {
-                    deleteDir() // Clean workspace
-                    git branch: 'main', url: 'https://github.com/Rushi5078/skillupjava.git'
+                    sh 'mvn clean package -DskipTests'
                 }
             }
         }
 
-        stage('Build JAR') {
+        stage('Run Tests') {
             steps {
                 script {
-                    // Build the JAR file using Maven
-                    sh 'mvn clean package -DskipTests'
+                    sh 'mvn test'
                 }
             }
         }
@@ -29,8 +41,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Ensure the JAR file exists before building the Docker image
-                    sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
                 }
             }
         }
@@ -40,7 +51,7 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin"
-                        sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                        sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
                     }
                 }
             }
@@ -49,25 +60,29 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Update the deployment.yaml with the new image tag
-                    sh "sed -i 's|rushikesh8788/skillupjava:.*|rushikesh8788/skillupjava:${env.IMAGE_TAG}|g' deployment.yaml"
+                    // Replace the image tag in your Kubernetes deployment file with the new image tag
+                    sh "sed -i 's|${IMAGE_NAME}:.*|${IMAGE_NAME}:${IMAGE_TAG}|g' deployment.yaml"
 
-                    // Apply deployment to Kubernetes
-                    sh "kubectl apply -f deployment.yaml"
+                    // Apply the Kubernetes deployment
+                    sh "kubectl apply -f deployment.yaml --namespace=${K8S_NAMESPACE}"
 
-                    // Verify rollout status
-                    sh "kubectl rollout status deployment/skillupjava"
+                    // Verify the deployment rollout
+                    sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME} --namespace=${K8S_NAMESPACE}"
                 }
             }
         }
     }
 
     post {
+        always {
+            // Clean up unused Docker images, containers, and volumes
+            sh 'docker system prune -f --volumes'
+        }
         success {
-            echo 'Pipeline executed successfully! Application is running.'
+            echo 'Deployment to Kubernetes successful!'
         }
         failure {
-            echo 'Pipeline failed! Check the logs for errors.'
+            echo 'Deployment failed. Check the logs for details.'
         }
     }
 }
