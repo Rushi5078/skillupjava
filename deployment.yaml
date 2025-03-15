@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: skillupjava-container
-        image: rushikesh8788/skillupjava:1  # Replace with your Docker image, updated by Jenkins pipeline
+        image: rushikesh8788/skillupjava:8  # Replace with your Docker image, updated by Jenkins pipeline
         ports:
         - containerPort: 8786  # Port exposed by your container
 ---
