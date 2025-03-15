@@ -8,11 +8,11 @@ pipeline {
     environment {
         IMAGE_NAME = 'rushikesh8788/skillupjava'
         CONTAINER_NAME = 'skillup-java-container'
-        EXTERNAL_PORT = '8786'  // Updated to avoid 8080
-        INTERNAL_PORT = '8786'  // Updated internal port to match external
-        K8S_NAMESPACE = 'default'  // You can replace it with your own namespace
-        K8S_DEPLOYMENT_NAME = 'skillup-java-deployment'
-        IMAGE_TAG = "${env.BUILD_NUMBER}" // Tag Docker image with Jenkins build number
+        EXTERNAL_PORT = '8786'
+        INTERNAL_PORT = '8786'
+        K8S_NAMESPACE = 'default'
+        K8S_DEPLOYMENT_NAME = 'skillupjava'  // ✅ Matches deployment.yaml
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -60,13 +60,13 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Replace the image tag in your Kubernetes deployment file with the new image tag
-                    sh "sed -i 's|${IMAGE_NAME}:.*|${IMAGE_NAME}:${IMAGE_TAG}|g' deployment.yaml"
+                    // Fix: Ensure correct image replacement
+                    sh "sed -i 's|image: .*|image: ${IMAGE_NAME}:${IMAGE_TAG}|g' deployment.yaml"
 
-                    // Apply the Kubernetes deployment
+                    // Apply Kubernetes deployment
                     sh "kubectl apply -f deployment.yaml --namespace=${K8S_NAMESPACE}"
 
-                    // Verify the deployment rollout
+                    // Verify deployment rollout
                     sh "kubectl rollout status deployment/${K8S_DEPLOYMENT_NAME} --namespace=${K8S_NAMESPACE}"
                 }
             }
@@ -75,7 +75,6 @@ pipeline {
 
     post {
         always {
-            // Clean up unused Docker images, containers, and volumes
             sh 'docker system prune -f --volumes'
         }
         success {
