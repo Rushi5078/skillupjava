@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'skillup-java-app'
+        IMAGE_NAME = 'rushikesh8788/skillupjava'
         CONTAINER_NAME = 'skillup-java-container'
         EXTERNAL_PORT = '8786'  // Updated to avoid 8080
         INTERNAL_PORT = '8786'  // Updated internal port to match external
