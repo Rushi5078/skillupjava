@@ -1,35 +1,63 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: skillupjava
-  labels:
-    app: skillupjava
-spec:
-  replicas: 1  # Number of pods to run
-  selector:
-    matchLabels:
-      app: skillupjava
-  template:
-    metadata:
-      labels:
-        app: skillupjava
-    spec:
-      containers:
-      - name: skillupjava-container
-        image: rushikesh8788/skillupjava:8  # Replace with your Docker image, updated by Jenkins pipeline
-        ports:
-        - containerPort: 8786  # Port exposed by your container
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: skillupjava-service
-spec:
-  selector:
-    app: skillupjava  # Selects pods with the label 'app: skillupjava'
-  ports:
-    - protocol: TCP
-      port: 80         # Port exposed on the service
-      targetPort: 8786  # Port on the container to which traffic is forwarded
-      nodePort: 30008   # Port exposed on the nodes (NodePort)
-  type: NodePort        # Exposes the service as a NodePort
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'rushikesh8788/skillupjava'
+        IMAGE_TAG = "${env.BUILD_NUMBER}" // Use BUILD_NUMBER for unique image tagging
+        PORT = '8786'  // Port exposed by the container
+    }
+
+    stages {
+        stage('Checkout Repository') {
+            steps {
+                script {
+                    deleteDir() // Clean workspace
+                    git branch: 'master', url: 'https://github.com/Rushi5078/skillupjava.git'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                }
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin"
+                        sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Update the deployment.yaml with the new image tag
+                    sh "sed -i 's|rushikesh8788/skillupjava:.*|rushikesh8788/skillupjava:${env.IMAGE_TAG}|g' deployment.yaml"
+
+                    // Apply deployment to Kubernetes
+                    sh "kubectl apply -f deployment.yaml"
+
+                    // Verify rollout status
+                    sh "kubectl rollout status deployment/skillupjava"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline executed successfully! Application is running.'
+        }
+        failure {
+            echo 'Pipeline failed! Check the logs for errors.'
+        }
+    }
+}
