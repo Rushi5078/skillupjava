@@ -12,7 +12,7 @@ pipeline {
             steps {
                 script {
                     deleteDir() // Clean workspace
-                    git branch: 'master', url: 'https://github.com/Rushi5078/skillupjava.git'
+                    git branch: 'main', url: 'https://github.com/Rushi5078/skillupjava.git'
                 }
             }
         }
