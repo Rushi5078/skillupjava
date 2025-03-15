@@ -1,67 +1,35 @@
-pipeline {
-    agent any
-
-    tools {
-        maven 'maven'
-    }
-
-    environment {
-        IMAGE_NAME = 'skillup-java-app'
-        CONTAINER_NAME = 'skillup-java-container'
-        EXTERNAL_PORT = '8786'  // Updated to avoid 8080
-        INTERNAL_PORT = '8786'  // Updated internal port to match external
-    }
-
-    stages {
-        stage('Clone Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Rushi5078/skillupjava.git'
-            }
-        }
-
-        stage('Build Application') {
-            steps {
-                script {
-                    sh 'mvn clean package -DskipTests'
-                }
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                script {
-                    sh 'mvn test'
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    sh 'docker build -t ${IMAGE_NAME} .'
-                }
-            }
-        }
-
-        stage('Run Docker Container') {
-            steps {
-                script {
-                    sh "docker rm -f ${CONTAINER_NAME} || true"
-                    sh "docker run -d -p ${EXTERNAL_PORT}:${INTERNAL_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            sh 'docker system prune -f --volumes'
-        }
-        success {
-            echo 'Deployment successful!'
-        }
-        failure {
-            echo 'Deployment failed. Check logs for details.'
-        }
-    }
-}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skillupjava
+  labels:
+    app: skillupjava
+spec:
+  replicas: 1  # Number of pods to run
+  selector:
+    matchLabels:
+      app: skillupjava
+  template:
+    metadata:
+      labels:
+        app: skillupjava
+    spec:
+      containers:
+      - name: skillupjava-container
+        image: rushikesh8788/skillupjava:8  # Replace with your Docker image, updated by Jenkins pipeline
+        ports:
+        - containerPort: 8786  # Port exposed by your container
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skillupjava-service
+spec:
+  selector:
+    app: skillupjava  # Selects pods with the label 'app: skillupjava'
+  ports:
+    - protocol: TCP
+      port: 80         # Port exposed on the service
+      targetPort: 8786  # Port on the container to which traffic is forwarded
+      nodePort: 30008   # Port exposed on the nodes (NodePort)
+  type: NodePort        # Exposes the service as a NodePort
